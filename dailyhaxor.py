@@ -106,7 +106,7 @@ class DailyHaxor:
 		self.WriteHtmlFooter(f)
 		f.close()
 
-	def GetCommitsOnDay(self, path, theDate, theUser):
+	def GetCommitsOnDay_hg(self, path, theDate, theUser):
 		strDate = str(theDate)
 		args = ["hg", "log", "-d", strDate, "--template" ,  "*"]
 		
@@ -120,25 +120,48 @@ class DailyHaxor:
 	        cwd=path)
 	    
 		result = pipe.stdout.read()
-		return result
+		return str.count(result, "*" )
 
-	def scanRepository(self, repname, repository, username):
+	def GetCommitsOnDay_Git(self, path, theDate, theUser ):
+		strDate = str(theDate)
+		args = ["git", "log", '--pretty=format:*']
+
+		if theUser != None:
+			args.append("--author=" + theUser )
+		
+		args.append('--after="' + strDate + ' 00:00"')
+		args.append('--before="' + strDate + ' 23:59"')
+
+		pipe = subprocess.Popen(
+	        args,
+	        stdout=subprocess.PIPE,
+	        cwd=path)
+	    
+		result = pipe.stdout.read()
+		return str.count(result, "*" )
+
+	def scanRepository(self, reptype, repname, repository, username):
 		now = datetime.date.today()
 
 		for i in xrange(1,self.daysBack):
 			now -= datetime.timedelta(days=1)
 			daystr = str(now)
-			commitByDay = self.GetCommitsOnDay(repository, now, username)
-			if len(commitByDay) > 0:
+
+			if reptype=="hg":
+				commitByDay = self.GetCommitsOnDay_hg(repository, now, username)
+			else:
+				commitByDay = self.GetCommitsOnDay_Git(repository, now, username)
+
+			if commitByDay > 0:
 				if self.dailyCommits.has_key(daystr):
-					self.dailyCommits[daystr] = self.dailyCommits[daystr] + len(commitByDay)
+					self.dailyCommits[daystr] = self.dailyCommits[daystr] + commitByDay
 				else:
-					self.dailyCommits[daystr] = len(commitByDay)
+					self.dailyCommits[daystr] = commitByDay
 
 				self.maxActivity = max(self.maxActivity, self.dailyCommits[daystr])
 
 				if self.dailyTitles.has_key(daystr):
-					self.dailyTitles[daystr] = self.dailyTitles[daystr] + ", " + repname + " " + str(len(commitByDay))
+					self.dailyTitles[daystr] = self.dailyTitles[daystr] + ", " + repname + " " + str(commitByDay)
 				else:
-					self.dailyTitles[daystr] = repname + " " + str(len(commitByDay))
+					self.dailyTitles[daystr] = repname + " " + str(commitByDay)
 
