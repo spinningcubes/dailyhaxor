@@ -1,6 +1,31 @@
 import datetime
 import time
 import subprocess
+import os
+
+class Repository:
+	def  __init__(self, name):
+		self.name = name
+		self.dailyCommits = {}	# Number of commits on a day.
+
+	def ClearCommits(self,day):
+		if day in self.dailyCommits:
+			del self.dailyCommits[day]
+
+	def GetCommits(self,day):
+		if day in self.dailyCommits:
+			return self.dailyCommits[day]
+
+		return 0
+
+	def SetCommits(self,day, commits):
+		self.dailyCommits[day] = commits
+
+	def DataExists(self,day):
+		if day in self.dailyCommits:
+			return True
+		
+		return False
 
 class DailyHaxor:
 	'DailyHaxor generates github style activity boxes in html from selected local repository'
@@ -10,6 +35,9 @@ class DailyHaxor:
 	daysBack = 7				# How many days back to scan each repository
 
 	# Works variables
+	repositories = dict()
+	currentRepository = None
+
 	dailyCommits = {}			# Number of commits on a day.
 	dailyTitles = {}			# Text for a day.
 	maxActivity = 0				# Max number of commits find in a single day.
@@ -56,6 +84,8 @@ class DailyHaxor:
 		return self.commitColors[4]
 
 	def WriteHtml(self ):
+		self.MergeData()
+
 		daily_y = 0
 		daily_x = 0
 
@@ -141,28 +171,106 @@ class DailyHaxor:
 		result_str = result.decode()
 		return str.count(result_str, "*" )
 
-	def scanRepository(self, reptype, repname, repository, username):
+	def GetCommitsOnDay(self, reptype, path, theDate, theUser ):
+		commitByDay = 0
+
+		daystr = str(theDate)
+
+		if self.currentRepository.DataExists(daystr):
+			return self.currentRepository.GetCommits(daystr)
+
+		print("   ", daystr )
+
+		if reptype=="hg":
+			commitByDay = self.GetCommitsOnDay_hg(path, theDate, theUser)
+		else:
+			commitByDay = self.GetCommitsOnDay_Git(path, theDate, theUser)
+
+		return commitByDay
+
+	def LoadDB(self, repname):
+		if repname not in self.repositories:
+			self.repositories[repname] = Repository(repname)
+
+		repository = self.repositories[repname]
+
+		fileName = "db_" + repname + ".txt"
+		if not os.path.exists(fileName):
+			return 
+
+		f = open(fileName, 'r')
+
+		lines = f.readlines()
+		f.close()
+
+		for l in lines:
+			words = l.split('=')
+			repository.dailyCommits[words[0]] = int(words[1])
+
+	def SaveDB(self, repname):
+		repository = self.repositories[repname]
+
+		fileName = "db_" + repname + ".txt"
+
+		f = open(fileName, 'w')
+
+		now = datetime.date.today()
+		for i in range(1,self.daysBack):
+			daystr = str(now)
+			txt = daystr + "=" + str(repository.dailyCommits[daystr]) + "\n"
+			f.write(txt)
+			now -= datetime.timedelta(days=1)
+
+		f.close()
+
+	def MergeData(self):
+		# Clean target data
+		self.dailyCommits = {}		
+		self.dailyTitles = {}			
+		self.maxActivity = 0			
+
 		now = datetime.date.today()
 
 		for i in range(1,self.daysBack):
 			daystr = str(now)
+			totalCommits = 0
 
-			if reptype=="hg":
-				commitByDay = self.GetCommitsOnDay_hg(repository, now, username)
-			else:
-				commitByDay = self.GetCommitsOnDay_Git(repository, now, username)
+			for key in self.repositories:
+				repository = self.repositories[key]
+				repCommits = repository.GetCommits(daystr)
 
-			if commitByDay > 0:
-				if daystr in self.dailyCommits:
-					self.dailyCommits[daystr] = self.dailyCommits[daystr] + commitByDay
-				else:
-					self.dailyCommits[daystr] = commitByDay
+				if repCommits > 0:
+					totalCommits = totalCommits + repCommits
 
-				self.maxActivity = max(self.maxActivity, self.dailyCommits[daystr])
-
-				if daystr in self.dailyTitles:
-					self.dailyTitles[daystr] = self.dailyTitles[daystr] + ", " + repname + " " + str(commitByDay)
-				else:
-					self.dailyTitles[daystr] = repname + " " + str(commitByDay)
+					if daystr in self.dailyTitles:
+						self.dailyTitles[daystr] = self.dailyTitles[daystr] + ", " + repository.name + " " + str(repCommits)
+					else:
+						self.dailyTitles[daystr] = repository.name + " " + str(repCommits)
+			
+			if totalCommits > 0:
+				self.dailyCommits[daystr] = totalCommits
+				self.maxActivity = max(self.maxActivity, totalCommits)
 
 			now -= datetime.timedelta(days=1)
+
+
+	def scanRepository(self, reptype, repname, repository, username):
+		self.LoadDB(repname)
+		self.currentRepository = self.repositories[repname]
+
+		if repository == None:
+			return					# Do not update existing database
+
+		now = datetime.date.today()
+
+		print("Update repository ", repname )
+		self.currentRepository.ClearCommits(str(now))	# Clear todays commits to get it again
+
+		for i in range(1,self.daysBack):
+			daystr = str(now)
+
+			commitByDay = self.GetCommitsOnDay(reptype, repository, now, username)
+			self.currentRepository.SetCommits(daystr, commitByDay)
+			now -= datetime.timedelta(days=1)
+
+		self.SaveDB(repname)
