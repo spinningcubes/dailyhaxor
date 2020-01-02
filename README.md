@@ -1,2 +1,2 @@
 # dailyhaxor
-Python module to generate github style activity box for local hg repositorys.
+Python module to generate github style activity box for local hg repositorys. :)
