@@ -70,7 +70,7 @@ class DailyHaxor:
 		f.write('<svg width="721" height="110">\n')
 		f.write('   <g transform="translate(0, 0)">\n')
 
-		for i in range(self.daysBack,0,-1):
+		for i in range(self.daysBack,-1,-1):
 			now = datetime.date.today()
 			now -= datetime.timedelta(days=i)
 			daystr = str(now)
@@ -87,7 +87,7 @@ class DailyHaxor:
 			if daystr in self.dailyTitles:
 				f.write('         <title>' + daystr + ' ' + self.dailyTitles[daystr] + '</title>\n')
 			else:
-				f.write('         <title>' + daystr + ' 0</title>\n')
+				f.write('         <title>' + daystr + '</title>\n')
 
 			f.write('      </rect>\n')
 
@@ -132,7 +132,6 @@ class DailyHaxor:
 		
 		args.append('--after="' + strDate + ' 00:00"')
 		args.append('--before="' + strDate + ' 23:59"')
-		print(args)
 		pipe = subprocess.Popen(
 	        args,
 	        stdout=subprocess.PIPE,
@@ -146,7 +145,6 @@ class DailyHaxor:
 		now = datetime.date.today()
 
 		for i in range(1,self.daysBack):
-			now -= datetime.timedelta(days=1)
 			daystr = str(now)
 
 			if reptype=="hg":
@@ -167,3 +165,4 @@ class DailyHaxor:
 				else:
 					self.dailyTitles[daystr] = repname + " " + str(commitByDay)
 
+			now -= datetime.timedelta(days=1)
