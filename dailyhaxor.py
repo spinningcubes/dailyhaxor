@@ -70,13 +70,13 @@ class DailyHaxor:
 		f.write('<svg width="721" height="110">\n')
 		f.write('   <g transform="translate(0, 0)">\n')
 
-		for i in xrange(self.daysBack,0,-1):
+		for i in range(self.daysBack,0,-1):
 			now = datetime.date.today()
 			now -= datetime.timedelta(days=i)
 			daystr = str(now)
 
 			data_points = 0
-			if self.dailyCommits.has_key(str(now)):
+			if str(now) in self.dailyCommits:
 				data_points = self.dailyCommits[str(now)]
 
 			color = self.GetColor(data_points)
@@ -84,10 +84,10 @@ class DailyHaxor:
 			f.write('      <rect class="day" width="11" height="11" y="' + str(daily_y))
 			f.write('" fill="#' + color + '">\n')
 
-			if self.dailyTitles.has_key(daystr):
-				f.write('         <title>Commits: ' + self.dailyTitles[daystr] + '</title>\n')
+			if daystr in self.dailyTitles:
+				f.write('         <title>' + daystr + ' ' + self.dailyTitles[daystr] + '</title>\n')
 			else:
-				f.write('         <title>Commits: 0</title>\n')
+				f.write('         <title>' + daystr + ' 0</title>\n')
 
 			f.write('      </rect>\n')
 
@@ -120,7 +120,8 @@ class DailyHaxor:
 	        cwd=path)
 	    
 		result = pipe.stdout.read()
-		return str.count(result, "*" )
+		result_str = result.decode()
+		return str.count(result_str, "*" )
 
 	def GetCommitsOnDay_Git(self, path, theDate, theUser ):
 		strDate = str(theDate)
@@ -131,19 +132,20 @@ class DailyHaxor:
 		
 		args.append('--after="' + strDate + ' 00:00"')
 		args.append('--before="' + strDate + ' 23:59"')
-
+		print(args)
 		pipe = subprocess.Popen(
 	        args,
 	        stdout=subprocess.PIPE,
 	        cwd=path)
 	    
 		result = pipe.stdout.read()
-		return str.count(result, "*" )
+		result_str = result.decode()
+		return str.count(result_str, "*" )
 
 	def scanRepository(self, reptype, repname, repository, username):
 		now = datetime.date.today()
 
-		for i in xrange(1,self.daysBack):
+		for i in range(1,self.daysBack):
 			now -= datetime.timedelta(days=1)
 			daystr = str(now)
 
@@ -153,14 +155,14 @@ class DailyHaxor:
 				commitByDay = self.GetCommitsOnDay_Git(repository, now, username)
 
 			if commitByDay > 0:
-				if self.dailyCommits.has_key(daystr):
+				if daystr in self.dailyCommits:
 					self.dailyCommits[daystr] = self.dailyCommits[daystr] + commitByDay
 				else:
 					self.dailyCommits[daystr] = commitByDay
 
 				self.maxActivity = max(self.maxActivity, self.dailyCommits[daystr])
 
-				if self.dailyTitles.has_key(daystr):
+				if daystr in self.dailyTitles:
 					self.dailyTitles[daystr] = self.dailyTitles[daystr] + ", " + repname + " " + str(commitByDay)
 				else:
 					self.dailyTitles[daystr] = repname + " " + str(commitByDay)
