@@ -171,6 +171,28 @@ class DailyHaxor:
 		result_str = result.decode()
 		return str.count(result_str, "*" )
 
+	def GetCommitsOnDay_perforce(self, path, theDate, theUser ):
+		startDateStr = str(theDate)
+		endDateStr = str(theDate + datetime.timedelta(days=1))
+
+		startDateStr = startDateStr.replace("-", "/")
+		endDateStr = endDateStr.replace("-", "/")
+
+		args = ["p4", "changes", '-s' , 'submitted',  '-u', 'vim']
+		args.append('@' + startDateStr + ':00:00:00,' + endDateStr + ':00:00:00')
+
+		pipe = subprocess.Popen(
+	        args,
+	        stdout=subprocess.PIPE,
+	        cwd=path)
+	    
+		result = pipe.stdout.read()
+		result_str = result.decode()
+		return str.count(result_str, "Change" )
+
+	def GetCommitsOnDay_svn(self, path, theDate, theUser ):
+		return 0
+
 	def GetCommitsOnDay(self, reptype, path, theDate, theUser ):
 		commitByDay = 0
 
@@ -183,8 +205,10 @@ class DailyHaxor:
 
 		if reptype=="hg":
 			commitByDay = self.GetCommitsOnDay_hg(path, theDate, theUser)
-		else:
+		elif  reptype=="git":
 			commitByDay = self.GetCommitsOnDay_Git(path, theDate, theUser)
+		elif  reptype=="perforce":
+			commitByDay = self.GetCommitsOnDay_perforce(path, theDate, theUser)
 
 		return commitByDay
 
